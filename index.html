@@ -2,10 +2,216 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Мой сайт на GitHub Pages</title>
+  <title>Lum’Asar Web — Полифония Света</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 20px;
+      padding: 20px;
+    }
+    h1 {
+      color: #4a90e2;
+      text-align: center;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .checkboxes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .checkboxes label {
+      margin-right: 8px;
+    }
+    #output {
+      margin-top: 10px;
+      background: #fff;
+      padding: 10px;
+      border-radius: 6px;
+      min-height: 80px;
+      white-space: pre-wrap;
+    }
+    canvas {
+      background: #ffffff;
+      border: 1px solid #ccc;
+      margin-top: 10px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .slider-container {
+      text-align: center;
+      margin: 10px 0;
+    }
+  </style>
 </head>
 <body>
-  <h1>Проверка GitHub Pages</h1>
-  <p>Если вы видите это в браузере — значит всё работает!</p>
+  <h1>Lum’Asar Web — Полифония Света</h1>
+  <div class="container">
+    <p>Выбери до 4 слогов:</p>
+    <div class="checkboxes">
+      <label><input type="checkbox" class="sylCheck" value="Lu" />Lu</label>
+      <label><input type="checkbox" class="sylCheck" value="Sa" />Sa</label>
+      <label><input type="checkbox" class="sylCheck" value="Ra" />Ra</label>
+      <label><input type="checkbox" class="sylCheck" value="Va" />Va</label>
+      <label><input type="checkbox" class="sylCheck" value="Mi" />Mi</label>
+      <label><input type="checkbox" class="sylCheck" value="Ke" />Ke</label>
+    </div>
+    <div class="slider-container">
+      <label>Сдвиг частоты (± Гц): </label>
+      <input type="range" id="freqShift" min="-20" max="20" value="0" />
+      <span id="shiftValue">0</span>
+    </div>
+    <button id="genBtn">Сгенерировать мантру</button>
+    <div id="output"></div>
+    <canvas id="myCanvas" width="300" height="300"></canvas>
+  </div>
+
+<script>
+/** Данные слогов Lum’Asar: freq, shape, desc */
+const lumSyllables = {
+  "Lu": { freq: 432, shape: "spiral", desc: "Свет, начало, рождение" },
+  "Sa": { freq: 528, shape: "wave",   desc: "Любовь, поток, связь" },
+  "Ra": { freq: 639, shape: "triangle", desc: "Сила, освобождение" },
+  "Va": { freq: 741, shape: "harmony", desc: "Гармония, рост" },
+  "Mi": { freq: 852, shape: "circle",  desc: "Истина, вдохновение" },
+  "Ke": { freq: 963, shape: "dot",     desc: "Вечность, тишина" }
+};
+
+// При загрузке
+window.addEventListener('DOMContentLoaded', () => {
+  const checkboxes = document.querySelectorAll('.sylCheck');
+  const genBtn = document.getElementById('genBtn');
+  const output = document.getElementById('output');
+  const canvas = document.getElementById('myCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const freqShiftInput = document.getElementById('freqShift');
+  const shiftValueSpan = document.getElementById('shiftValue');
+
+  freqShiftInput.addEventListener('input', () => {
+    shiftValueSpan.textContent = freqShiftInput.value;
+  });
+
+  genBtn.addEventListener('click', () => {
+    // Считываем выбранные слоги
+    let selected = [];
+    checkboxes.forEach(ch => {
+      if (ch.checked) selected.push(ch.value);
+    });
+    if (selected.length === 0) {
+      output.textContent = "Нет выбранных слогов!";
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+    if (selected.length > 4) {
+      output.textContent = "Выбрано больше 4 слогов! (ограничение 4)";
+      return;
+    }
+
+    // Сдвиг
+    const shift = parseInt(freqShiftInput.value, 10);
+
+    // Считаем частоты
+    let baseFreqs = [];
+    for (let syl of selected) {
+      let base = lumSyllables[syl].freq;
+      baseFreqs.push(base + shift);
+    }
+    // Средняя частота
+    let avgFreq = Math.round(baseFreqs.reduce((a,b)=>a+b,0)/baseFreqs.length);
+
+    // Выводим инфу
+    let formula = selected.join("-");
+    output.textContent = 
+      "Поли-мантра: " + formula + "\n" +
+      "Частоты (с учётом сдвига): " + baseFreqs.join(", ") + "\n" +
+      "Средняя частота: " + avgFreq + " Гц\n";
+
+    // Рисуем фигуры
+    drawPattern(ctx, canvas, selected);
+
+    // Проигрываем звук
+    playTone(avgFreq, 0.8); // 0.8 секунд
+  });
+});
+
+/** Функция рисует фигуры в Canvas */
+function drawPattern(ctx, canvas, slogs) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  let x = canvas.width/2;
+  let y = canvas.height/2;
+  let r = 40;
+
+  slogs.forEach((syl, i) => {
+    let fig = lumSyllables[syl].shape;
+    let offset = i * 30;
+    ctx.beginPath();
+    if (fig === "spiral") {
+      // Имитация спирали: просто эллипс
+      ctx.strokeStyle = "blue";
+      ctx.arc(x, y, r+offset, 0, 2*Math.PI);
+    } else if (fig === "wave") {
+      ctx.strokeStyle = "green";
+      ctx.moveTo(x-50, y+offset);
+      ctx.quadraticCurveTo(x, y+offset-20, x+50, y+offset);
+    } else if (fig === "triangle") {
+      ctx.strokeStyle = "magenta";
+      ctx.moveTo(x, y-r-offset);
+      ctx.lineTo(x-r, y+r-offset);
+      ctx.lineTo(x+r, y+r-offset);
+      ctx.closePath();
+    } else if (fig === "harmony") {
+      ctx.strokeStyle = "purple";
+      ctx.arc(x, y, r+offset, 0, 2*Math.PI);
+    } else if (fig === "circle") {
+      ctx.strokeStyle = "red";
+      ctx.arc(x, y, r+offset, 0, 2*Math.PI);
+    } else if (fig === "dot") {
+      ctx.fillStyle = "black";
+      ctx.arc(x, y-offset, 3, 0, 2*Math.PI);
+      ctx.fill();
+    }
+    ctx.stroke();
+  });
+}
+
+/** Генерация звука через Web Audio API */
+function playTone(freq, durationSec) {
+  // Создаём аудиоконтекст
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  const audioCtx = new AudioContext();
+
+  // Создаём генератор (осциллятор)
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+  // Создаём усилитель (GainNode) чтобы плавно завершать
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+
+  // Подключаем
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  // Запускаем
+  osc.start();
+
+  // Останавливаем через durationSec секунд (плавный спад)
+  setTimeout(() => {
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+    setTimeout(() => {
+      osc.stop();
+      audioCtx.close();
+    }, 500);
+  }, durationSec * 1000);
+}
+</script>
 </body>
 </html>
