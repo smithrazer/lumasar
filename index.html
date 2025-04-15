@@ -2,13 +2,14 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Lum’Asar Web — Полифония Света</title>
+  <title>Lum’Asar Web — Порядок кликов + Звук + Canvas</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       background-color: #f4f4f9;
       margin: 20px;
       padding: 20px;
+      line-height: 1.6;
     }
     h1 {
       color: #4a90e2;
@@ -26,14 +27,14 @@
       margin-bottom: 10px;
     }
     .checkboxes label {
-      margin-right: 8px;
+      cursor: pointer;
     }
     #output {
       margin-top: 10px;
       background: #fff;
       padding: 10px;
       border-radius: 6px;
-      min-height: 80px;
+      min-height: 70px;
       white-space: pre-wrap;
     }
     canvas {
@@ -48,131 +49,159 @@
       text-align: center;
       margin: 10px 0;
     }
+    .slider-container label {
+      margin-right: 5px;
+    }
   </style>
 </head>
 <body>
-  <h1>Lum’Asar Web — Полифония Света</h1>
+  <h1>Lum’Asar Web: Порядок + Сдвиг + Звук + Фигуры</h1>
   <div class="container">
-    <p>Выбери до 4 слогов:</p>
+    <p>Отметь до 4 слогов в желаемом порядке (нажимай чекбоксы). Затем нажми «Сгенерировать мантру».</p>
     <div class="checkboxes">
-      <label><input type="checkbox" class="sylCheck" value="Lu" />Lu</label>
-      <label><input type="checkbox" class="sylCheck" value="Sa" />Sa</label>
-      <label><input type="checkbox" class="sylCheck" value="Ra" />Ra</label>
-      <label><input type="checkbox" class="sylCheck" value="Va" />Va</label>
-      <label><input type="checkbox" class="sylCheck" value="Mi" />Mi</label>
-      <label><input type="checkbox" class="sylCheck" value="Ke" />Ke</label>
+      <label><input type="checkbox" value="Lu" onclick="toggleSyllable(this)">Lu</label>
+      <label><input type="checkbox" value="Sa" onclick="toggleSyllable(this)">Sa</label>
+      <label><input type="checkbox" value="Ra" onclick="toggleSyllable(this)">Ra</label>
+      <label><input type="checkbox" value="Va" onclick="toggleSyllable(this)">Va</label>
+      <label><input type="checkbox" value="Mi" onclick="toggleSyllable(this)">Mi</label>
+      <label><input type="checkbox" value="Ke" onclick="toggleSyllable(this)">Ke</label>
     </div>
+
     <div class="slider-container">
-      <label>Сдвиг частоты (± Гц): </label>
+      <label>Сдвиг частоты (± Гц):</label>
       <input type="range" id="freqShift" min="-20" max="20" value="0" />
-      <span id="shiftValue">0</span>
+      <span id="shiftVal">0</span>
     </div>
+
     <button id="genBtn">Сгенерировать мантру</button>
     <div id="output"></div>
+
     <canvas id="myCanvas" width="300" height="300"></canvas>
   </div>
 
 <script>
-/** Данные слогов Lum’Asar: freq, shape, desc */
+// ---------------------- Данные слогов ----------------------
+/**
+ * Частота (freq), фигура (shape), описание (desc).
+ * Можно добавлять новые поля при желании.
+ */
 const lumSyllables = {
-  "Lu": { freq: 432, shape: "spiral", desc: "Свет, начало, рождение" },
-  "Sa": { freq: 528, shape: "wave",   desc: "Любовь, поток, связь" },
-  "Ra": { freq: 639, shape: "triangle", desc: "Сила, освобождение" },
+  "Lu": { freq: 432, shape: "spiral",  desc: "Свет, начало, рождение" },
+  "Sa": { freq: 528, shape: "wave",    desc: "Любовь, связь, поток" },
+  "Ra": { freq: 639, shape: "triangle",desc: "Сила, освобождение" },
   "Va": { freq: 741, shape: "harmony", desc: "Гармония, рост" },
   "Mi": { freq: 852, shape: "circle",  desc: "Истина, вдохновение" },
   "Ke": { freq: 963, shape: "dot",     desc: "Вечность, тишина" }
 };
 
-// При загрузке
+// --------------------- Порядок кликов ---------------------
+/**
+ * Массив слогов в порядке, как пользователь нажимал чекбоксы.
+ * Например, если первым поставили галочку на Sa, вторым на Lu, будет ["Sa", "Lu"].
+ */
+let selectionOrder = [];
+
+// При клике по чекбоксу: добавить/убрать слог + обеспечить max 4 слога
+function toggleSyllable(checkbox) {
+  const syl = checkbox.value;
+  if (checkbox.checked) {
+    if (selectionOrder.length < 4) {
+      selectionOrder.push(syl);
+    } else {
+      // Уже выбрано 4
+      checkbox.checked = false; // отменяем галочку
+      alert("Нельзя выбрать более 4 слогов!");
+    }
+  } else {
+    // Убрать
+    selectionOrder = selectionOrder.filter(item => item !== syl);
+  }
+}
+
+// --------------------- Генерация мантры ---------------------
 window.addEventListener('DOMContentLoaded', () => {
-  const checkboxes = document.querySelectorAll('.sylCheck');
   const genBtn = document.getElementById('genBtn');
   const output = document.getElementById('output');
   const canvas = document.getElementById('myCanvas');
   const ctx = canvas.getContext('2d');
 
   const freqShiftInput = document.getElementById('freqShift');
-  const shiftValueSpan = document.getElementById('shiftValue');
+  const shiftValSpan = document.getElementById('shiftVal');
 
+  // Отображаем значение сдвига рядом со слайдером
   freqShiftInput.addEventListener('input', () => {
-    shiftValueSpan.textContent = freqShiftInput.value;
+    shiftValSpan.textContent = freqShiftInput.value;
   });
 
+  // Кнопка "Сгенерировать мантру"
   genBtn.addEventListener('click', () => {
-    // Считываем выбранные слоги
-    let selected = [];
-    checkboxes.forEach(ch => {
-      if (ch.checked) selected.push(ch.value);
-    });
-    if (selected.length === 0) {
+    // 1. Если ничего не выбрано
+    if (selectionOrder.length === 0) {
       output.textContent = "Нет выбранных слогов!";
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       return;
     }
-    if (selected.length > 4) {
-      output.textContent = "Выбрано больше 4 слогов! (ограничение 4)";
-      return;
-    }
 
-    // Сдвиг
+    // 2. Формируем строку (пр., "Sa-Lu")
+    const formula = selectionOrder.join("-");
+
+    // 3. Сдвиг частоты
     const shift = parseInt(freqShiftInput.value, 10);
 
-    // Считаем частоты
+    // 4. Собираем freq (с учётом shift)
     let baseFreqs = [];
-    for (let syl of selected) {
+    for (let syl of selectionOrder) {
       let base = lumSyllables[syl].freq;
       baseFreqs.push(base + shift);
     }
-    // Средняя частота
-    let avgFreq = Math.round(baseFreqs.reduce((a,b)=>a+b,0)/baseFreqs.length);
+    // Среднее
+    const avgFreq = Math.round(baseFreqs.reduce((a,b)=>a+b,0)/baseFreqs.length);
 
-    // Выводим инфу
-    let formula = selected.join("-");
+    // 5. Выводим текст
     output.textContent = 
-      "Поли-мантра: " + formula + "\n" +
+      "Выбрано: " + formula + "\n" +
       "Частоты (с учётом сдвига): " + baseFreqs.join(", ") + "\n" +
       "Средняя частота: " + avgFreq + " Гц\n";
 
-    // Рисуем фигуры
-    drawPattern(ctx, canvas, selected);
+    // 6. Рисуем фигуры
+    drawShapes(ctx, canvas, selectionOrder);
 
-    // Проигрываем звук
-    playTone(avgFreq, 0.8); // 0.8 секунд
+    // 7. Проигрываем звук (Web Audio API)
+    playTone(avgFreq, 0.8);
   });
 });
 
-/** Функция рисует фигуры в Canvas */
-function drawPattern(ctx, canvas, slogs) {
+// ------------------ Рисование фигур в Canvas ------------------
+function drawShapes(ctx, canvas, slogArray) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  let x = canvas.width/2;
-  let y = canvas.height/2;
-  let r = 40;
+  const x = canvas.width/2;
+  const y = canvas.height/2;
+  const r = 40;
 
-  slogs.forEach((syl, i) => {
-    let fig = lumSyllables[syl].shape;
-    let offset = i * 30;
+  slogArray.forEach((syl, index) => {
+    const shape = lumSyllables[syl].shape;
+    const offset = index * 30;
     ctx.beginPath();
-    if (fig === "spiral") {
-      // Имитация спирали: просто эллипс
+    if (shape === "spiral") {
       ctx.strokeStyle = "blue";
       ctx.arc(x, y, r+offset, 0, 2*Math.PI);
-    } else if (fig === "wave") {
+    } else if (shape === "wave") {
       ctx.strokeStyle = "green";
       ctx.moveTo(x-50, y+offset);
       ctx.quadraticCurveTo(x, y+offset-20, x+50, y+offset);
-    } else if (fig === "triangle") {
+    } else if (shape === "triangle") {
       ctx.strokeStyle = "magenta";
       ctx.moveTo(x, y-r-offset);
       ctx.lineTo(x-r, y+r-offset);
       ctx.lineTo(x+r, y+r-offset);
       ctx.closePath();
-    } else if (fig === "harmony") {
+    } else if (shape === "harmony") {
       ctx.strokeStyle = "purple";
       ctx.arc(x, y, r+offset, 0, 2*Math.PI);
-    } else if (fig === "circle") {
+    } else if (shape === "circle") {
       ctx.strokeStyle = "red";
       ctx.arc(x, y, r+offset, 0, 2*Math.PI);
-    } else if (fig === "dot") {
+    } else if (shape === "dot") {
       ctx.fillStyle = "black";
       ctx.arc(x, y-offset, 3, 0, 2*Math.PI);
       ctx.fill();
@@ -181,29 +210,29 @@ function drawPattern(ctx, canvas, slogs) {
   });
 }
 
-/** Генерация звука через Web Audio API */
+// --------------- Генерация звука (Web Audio API) ---------------
 function playTone(freq, durationSec) {
   // Создаём аудиоконтекст
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   const audioCtx = new AudioContext();
 
-  // Создаём генератор (осциллятор)
+  // Генератор (осциллятор)
   const osc = audioCtx.createOscillator();
   osc.type = 'sine';
   osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
-  // Создаём усилитель (GainNode) чтобы плавно завершать
+  // Усилитель (gain)
   const gainNode = audioCtx.createGain();
   gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
 
-  // Подключаем
+  // Соединяем
   osc.connect(gainNode);
   gainNode.connect(audioCtx.destination);
 
   // Запускаем
   osc.start();
 
-  // Останавливаем через durationSec секунд (плавный спад)
+  // Останавливаем после durationSec (с плавным затуханием)
   setTimeout(() => {
     gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
     setTimeout(() => {
